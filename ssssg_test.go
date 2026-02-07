@@ -290,3 +290,74 @@ pages:
 		t.Error("index.html should exist after build")
 	}
 }
+
+func TestBuild_WithStaticPipelines(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+global:
+  data:
+    site_name: "Test"
+
+pages:
+  - template: "index.html"
+    output: "index.html"
+    data:
+      title: "Home"
+
+static:
+  pipelines:
+    - match: "*.txt"
+      commands:
+        - "cp {{.Src}} {{.Dest}}"
+        - "sh -c 'echo PROCESSED >> {{.Dest}}'"
+`
+
+	dir := setupProject(t, yaml)
+
+	tmpl := `<html><body>{{ .Page.title }}</body></html>`
+	if err := os.WriteFile(filepath.Join(dir, "templates", "index.html"), []byte(tmpl), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create static files: one matching pipeline, one not
+	if err := os.WriteFile(filepath.Join(dir, "static", "data.txt"), []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "static", "style.css"), []byte("body{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := Build(t.Context(), BuildOptions{
+		ConfigPath: filepath.Join(dir, "site.yaml"),
+		Timeout:    10 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// Check pipeline-processed file
+	txtContent, err := os.ReadFile(filepath.Join(dir, "public", "data.txt"))
+	if err != nil {
+		t.Fatal("data.txt not created")
+	}
+
+	if !strings.Contains(string(txtContent), "original") {
+		t.Errorf("data.txt missing original content: %q", string(txtContent))
+	}
+
+	if !strings.Contains(string(txtContent), "PROCESSED") {
+		t.Errorf("data.txt missing PROCESSED marker: %q", string(txtContent))
+	}
+
+	// Check unmatched file was copied normally
+	cssContent, err := os.ReadFile(filepath.Join(dir, "public", "style.css"))
+	if err != nil {
+		t.Fatal("style.css not copied")
+	}
+
+	if string(cssContent) != "body{}" {
+		t.Errorf("style.css content = %q, want %q", string(cssContent), "body{}")
+	}
+}

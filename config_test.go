@@ -152,6 +152,143 @@ pages:
 	}
 }
 
+func TestLoadConfig_WithStaticPipelines(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+pages:
+  - template: "index.html"
+    output: "index.html"
+
+static:
+  pipelines:
+    - match: "*.jpg"
+      commands:
+        - "cp {{.Src}} {{.Dest}}"
+        - "echo done"
+    - match: "images/*.png"
+      commands:
+        - "cp {{.Src}} {{.Dest}}"
+`
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "site.yaml")
+	if err := os.WriteFile(cfgPath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig(cfgPath)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if len(cfg.Static.Pipelines) != 2 {
+		t.Fatalf("len(pipelines) = %d, want 2", len(cfg.Static.Pipelines))
+	}
+
+	if cfg.Static.Pipelines[0].Match != "*.jpg" {
+		t.Errorf("pipelines[0].match = %q, want %q", cfg.Static.Pipelines[0].Match, "*.jpg")
+	}
+
+	if len(cfg.Static.Pipelines[0].Commands) != 2 {
+		t.Errorf("pipelines[0].commands len = %d, want 2", len(cfg.Static.Pipelines[0].Commands))
+	}
+
+	if cfg.Static.Pipelines[1].Match != "images/*.png" {
+		t.Errorf("pipelines[1].match = %q, want %q", cfg.Static.Pipelines[1].Match, "images/*.png")
+	}
+}
+
+func TestLoadConfig_PipelineMissingMatch(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+pages:
+  - template: "index.html"
+    output: "index.html"
+
+static:
+  pipelines:
+    - commands:
+        - "echo hello"
+`
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "site.yaml")
+	if err := os.WriteFile(cfgPath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadConfig(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for missing match")
+	}
+
+	if !errors.Is(err, errPipelineMatchEmpty) {
+		t.Errorf("expected errPipelineMatchEmpty, got: %v", err)
+	}
+}
+
+func TestLoadConfig_PipelineNoCommands(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+pages:
+  - template: "index.html"
+    output: "index.html"
+
+static:
+  pipelines:
+    - match: "*.jpg"
+`
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "site.yaml")
+	if err := os.WriteFile(cfgPath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadConfig(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for no commands")
+	}
+
+	if !errors.Is(err, errPipelineNoCommands) {
+		t.Errorf("expected errPipelineNoCommands, got: %v", err)
+	}
+}
+
+func TestLoadConfig_PipelineInvalidPattern(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+pages:
+  - template: "index.html"
+    output: "index.html"
+
+static:
+  pipelines:
+    - match: "[invalid"
+      commands:
+        - "echo hello"
+`
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "site.yaml")
+	if err := os.WriteFile(cfgPath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadConfig(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for invalid pattern")
+	}
+
+	if !errors.Is(err, errPipelineInvalidMatch) {
+		t.Errorf("expected errPipelineInvalidMatch, got: %v", err)
+	}
+}
+
 func TestLoadConfig_AbsoluteOutputPath(t *testing.T) {
 	t.Parallel()
 

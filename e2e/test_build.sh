@@ -322,4 +322,74 @@ assert_file_exists "$CUSTOM_OUT/index.html" && pass
 begin_test "--output custom dir has correct content"
 assert_file_contains "$CUSTOM_OUT/index.html" "custom output" && pass
 
+# ── Static pipeline: matched files are processed ─────────
+
+PROJECT="$WORK_DIR/pipeline"
+make_project "$PROJECT"
+
+echo "original" > "$PROJECT/static/data.txt"
+echo "style" > "$PROJECT/static/style.css"
+mkdir -p "$PROJECT/static/images"
+echo "img" > "$PROJECT/static/images/photo.jpg"
+
+cat > "$PROJECT/site.yaml" <<'YAML'
+pages:
+  - template: "index.html"
+    output: "index.html"
+
+static:
+  pipelines:
+    - match: "*.txt"
+      commands:
+        - "cp {{.Src}} {{.Dest}}"
+        - "sh -c 'echo PROCESSED >> {{.Dest}}'"
+    - match: "images/*.jpg"
+      commands:
+        - "cp {{.Src}} {{.Dest}}"
+        - "sh -c 'echo OPTIMIZED >> {{.Dest}}'"
+YAML
+
+cat > "$PROJECT/templates/index.html" <<'TMPL'
+<html><body>ok</body></html>
+TMPL
+
+"$SSSSG_BIN" build --config "$PROJECT/site.yaml" --timeout 10s >/dev/null 2>&1
+
+begin_test "pipeline: matched file is processed"
+assert_file_contains "$PROJECT/public/data.txt" "PROCESSED" && pass
+
+begin_test "pipeline: matched file keeps original content"
+assert_file_contains "$PROJECT/public/data.txt" "original" && pass
+
+begin_test "pipeline: unmatched file is copied normally"
+assert_file_exists "$PROJECT/public/style.css" && pass
+
+begin_test "pipeline: unmatched file has correct content"
+assert_file_contains "$PROJECT/public/style.css" "style" && pass
+
+begin_test "pipeline: relative path match works"
+assert_file_contains "$PROJECT/public/images/photo.jpg" "OPTIMIZED" && pass
+
+# ── Static pipeline: no pipelines = backward compatible ──
+
+PROJECT="$WORK_DIR/pipeline_empty"
+make_project "$PROJECT"
+
+echo "keep" > "$PROJECT/static/file.txt"
+
+cat > "$PROJECT/site.yaml" <<'YAML'
+pages:
+  - template: "index.html"
+    output: "index.html"
+YAML
+
+cat > "$PROJECT/templates/index.html" <<'TMPL'
+<html><body>ok</body></html>
+TMPL
+
+"$SSSSG_BIN" build --config "$PROJECT/site.yaml" --timeout 10s >/dev/null 2>&1
+
+begin_test "pipeline: no pipelines copies all files"
+assert_file_contains "$PROJECT/public/file.txt" "keep" && pass
+
 summary

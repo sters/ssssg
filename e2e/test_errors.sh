@@ -128,4 +128,64 @@ rc=0
 "$SSSSG_BIN" build --config "$PROJECT/site.yaml" --timeout 5s >/dev/null 2>&1 || rc=$?
 assert_exit_code 1 "$rc" && pass
 
+# ── Pipeline: missing match ─────────────────────────────
+
+PROJECT="$WORK_DIR/pipeline_no_match"
+mkdir -p "$PROJECT/templates"
+
+cat > "$PROJECT/site.yaml" <<'YAML'
+pages:
+  - template: "index.html"
+    output: "index.html"
+static:
+  pipelines:
+    - commands:
+        - "echo hello"
+YAML
+
+begin_test "pipeline missing match returns error"
+rc=0
+"$SSSSG_BIN" build --config "$PROJECT/site.yaml" >/dev/null 2>&1 || rc=$?
+assert_exit_code 1 "$rc" && pass
+
+# ── Pipeline: no commands ───────────────────────────────
+
+PROJECT="$WORK_DIR/pipeline_no_cmds"
+mkdir -p "$PROJECT/templates"
+
+cat > "$PROJECT/site.yaml" <<'YAML'
+pages:
+  - template: "index.html"
+    output: "index.html"
+static:
+  pipelines:
+    - match: "*.jpg"
+YAML
+
+begin_test "pipeline no commands returns error"
+rc=0
+"$SSSSG_BIN" build --config "$PROJECT/site.yaml" >/dev/null 2>&1 || rc=$?
+assert_exit_code 1 "$rc" && pass
+
+# ── Pipeline: invalid match pattern ─────────────────────
+
+PROJECT="$WORK_DIR/pipeline_bad_pattern"
+mkdir -p "$PROJECT/templates"
+
+cat > "$PROJECT/site.yaml" <<'YAML'
+pages:
+  - template: "index.html"
+    output: "index.html"
+static:
+  pipelines:
+    - match: "[invalid"
+      commands:
+        - "echo hello"
+YAML
+
+begin_test "pipeline invalid pattern returns error"
+rc=0
+"$SSSSG_BIN" build --config "$PROJECT/site.yaml" >/dev/null 2>&1 || rc=$?
+assert_exit_code 1 "$rc" && pass
+
 summary

@@ -13,6 +13,16 @@ import (
 type Config struct {
 	Global GlobalConfig `yaml:"global"`
 	Pages  []PageConfig `yaml:"pages"`
+	Static StaticConfig `yaml:"static"`
+}
+
+type StaticConfig struct {
+	Pipelines []PipelineConfig `yaml:"pipelines"`
+}
+
+type PipelineConfig struct {
+	Match    string   `yaml:"match"`
+	Commands []string `yaml:"commands"`
 }
 
 type GlobalConfig struct {
@@ -30,9 +40,12 @@ type PageConfig struct {
 }
 
 var (
-	errTemplateRequired    = errors.New("template is required")
-	errOutputRequired      = errors.New("output is required")
-	errOutputPathTraversal = errors.New("output path must not escape output directory")
+	errTemplateRequired     = errors.New("template is required")
+	errOutputRequired       = errors.New("output is required")
+	errOutputPathTraversal  = errors.New("output path must not escape output directory")
+	errPipelineMatchEmpty   = errors.New("pipeline match pattern is required")
+	errPipelineNoCommands   = errors.New("pipeline must have at least one command")
+	errPipelineInvalidMatch = errors.New("pipeline match pattern is invalid")
 )
 
 func LoadConfig(path string) (*Config, error) {
@@ -58,6 +71,20 @@ func LoadConfig(path string) (*Config, error) {
 		cleaned := filepath.Clean(p.Output)
 		if filepath.IsAbs(cleaned) || strings.HasPrefix(cleaned, "..") {
 			return nil, fmt.Errorf("pages[%d]: %w: %s", i, errOutputPathTraversal, p.Output)
+		}
+	}
+
+	for i, p := range cfg.Static.Pipelines {
+		if p.Match == "" {
+			return nil, fmt.Errorf("static.pipelines[%d]: %w", i, errPipelineMatchEmpty)
+		}
+
+		if _, err := filepath.Match(p.Match, ""); err != nil {
+			return nil, fmt.Errorf("static.pipelines[%d]: %w: %s", i, errPipelineInvalidMatch, p.Match)
+		}
+
+		if len(p.Commands) == 0 {
+			return nil, fmt.Errorf("static.pipelines[%d]: %w", i, errPipelineNoCommands)
 		}
 	}
 

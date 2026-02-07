@@ -93,3 +93,44 @@ Templates use Go's `html/template` syntax. Data is accessed via `.Global` and `.
 ```
 
 Use `| raw` for fetched HTML/CSS content that should not be escaped.
+
+## Static File Pipelines
+
+By default, files in `static/` are copied to the output directory as-is. You can define pipelines to process matched files with shell commands:
+
+```yaml
+static:
+  pipelines:
+    - match: "*.jpg"
+      commands:
+        - "cp {{.Src}} {{.Dest}}"
+        - "mogrify -resize 800x600 {{.Dest}}"
+        - "jpegoptim --strip-all {{.Dest}}"
+    - match: "*.png"
+      commands:
+        - "cp {{.Src}} {{.Dest}}"
+        - "optipng -o2 {{.Dest}}"
+    - match: "images/*.webp"
+      commands:
+        - "cwebp -q 80 {{.Src}} -o {{.Dest}}"
+```
+
+### Matching rules
+
+- Pattern without `/`: matches against the **basename** (e.g. `*.jpg` matches `images/photo.jpg`)
+- Pattern with `/`: matches against the **relative path** from static directory (e.g. `images/*.webp`)
+- First matching pipeline wins
+- Unmatched files are copied as-is
+
+### Template variables
+
+Commands are processed with Go `text/template`. Available variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{.Src}}` | Source absolute path | `/path/to/static/photo.jpg` |
+| `{{.Dest}}` | Destination absolute path | `/path/to/public/photo.jpg` |
+| `{{.Dir}}` | Destination directory | `/path/to/public` |
+| `{{.Name}}` | File name | `photo.jpg` |
+| `{{.Ext}}` | Extension | `.jpg` |
+| `{{.Base}}` | Name without extension | `photo` |

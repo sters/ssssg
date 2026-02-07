@@ -160,11 +160,11 @@ func Build(ctx context.Context, opts BuildOptions) error {
 		return fmt.Errorf("build pages: %w", err)
 	}
 
-	// Copy static files
-	logf("Copying static files...")
+	// Process static files
+	logf("Processing static files...")
 
-	if err := CopyStatic(opts.StaticDir, opts.OutputDir); err != nil {
-		return fmt.Errorf("copy static: %w", err)
+	if err := ProcessStatic(ctx, opts.StaticDir, opts.OutputDir, cfg.Static.Pipelines); err != nil {
+		return fmt.Errorf("process static: %w", err)
 	}
 
 	logf("Done!")
