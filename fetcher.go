@@ -15,7 +15,10 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-var errHTTPStatus = errors.New("unexpected HTTP status")
+var (
+	errHTTPStatus       = errors.New("unexpected HTTP status")
+	errUnexpectedResult = errors.New("unexpected result type")
+)
 
 type Fetcher struct {
 	baseDir string
@@ -67,10 +70,15 @@ func (f *Fetcher) Fetch(ctx context.Context, source string) (string, error) {
 		return content, nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("fetch %s: %w", source, err)
 	}
 
-	return v.(string), nil
+	content, ok := v.(string)
+	if !ok {
+		return "", fmt.Errorf("fetch %s: %w", source, errUnexpectedResult)
+	}
+
+	return content, nil
 }
 
 func (f *Fetcher) fetchHTTP(ctx context.Context, url string) (string, error) {
@@ -133,7 +141,7 @@ func (f *Fetcher) ResolveFetchMap(ctx context.Context, fetchMap map[string]strin
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve fetch map: %w", err)
 	}
 
 	return result, nil

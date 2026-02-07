@@ -157,7 +157,7 @@ func Build(ctx context.Context, opts BuildOptions) error {
 	}
 
 	if err := g.Wait(); err != nil {
-		return err
+		return fmt.Errorf("build pages: %w", err)
 	}
 
 	// Copy static files
