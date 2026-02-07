@@ -109,6 +109,7 @@ func newBuildCmd() *cobra.Command {
 				StaticDir:   staticDir,
 				OutputDir:   outputDir,
 				Timeout:     timeout,
+				Log:         os.Stdout,
 			})
 		},
 	}

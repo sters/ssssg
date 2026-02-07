@@ -10,3 +10,5 @@ pages:
     data:
       title: "Home"
       greeting: "Welcome to My Site!"
+    fetch:
+      httpbin: "https://httpbin.org/get"

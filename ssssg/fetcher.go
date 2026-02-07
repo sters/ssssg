@@ -101,15 +101,36 @@ func (f *Fetcher) fetchFile(path string) (string, error) {
 }
 
 func (f *Fetcher) ResolveFetchMap(ctx context.Context, fetchMap map[string]string) (map[string]string, error) {
-	result := make(map[string]string, len(fetchMap))
+	type fetchResult struct {
+		key     string
+		content string
+		err     error
+	}
+
+	ch := make(chan fetchResult, len(fetchMap))
 
 	for key, source := range fetchMap {
-		content, err := f.Fetch(ctx, source)
-		if err != nil {
-			return nil, fmt.Errorf("fetch %q: %w", key, err)
+		go func(key, source string) {
+			content, err := f.Fetch(ctx, source)
+			if err != nil {
+				ch <- fetchResult{key: key, err: fmt.Errorf("fetch %q: %w", key, err)}
+
+				return
+			}
+
+			ch <- fetchResult{key: key, content: content}
+		}(key, source)
+	}
+
+	result := make(map[string]string, len(fetchMap))
+
+	for range len(fetchMap) {
+		r := <-ch
+		if r.err != nil {
+			return nil, r.err
 		}
 
-		result[key] = content
+		result[r.key] = r.content
 	}
 
 	return result, nil

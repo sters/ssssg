@@ -1,5 +1,7 @@
 {{ define "content" }}
 <main>
   <h1>{{ .Page.greeting }}</h1>
+  <h2>Fetch Example (httpbin.org/get)</h2>
+  <pre>{{ .Page.httpbin }}</pre>
 </main>
 {{ end }}
