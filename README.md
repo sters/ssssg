@@ -4,7 +4,7 @@
 [![coverage](docs/coverage.svg)](https://github.com/sters/ssssg)
 [![go-report](https://goreportcard.com/badge/github.com/sters/ssssg)](https://goreportcard.com/report/github.com/sters/ssssg)
 
-YAML でデータと URL を定義 → Go テンプレートで HTML を記述 → ビルドで静的 HTML を生成するツール。
+Define data and URLs in YAML, write HTML with Go templates, and build to generate static HTML.
 
 ## Install
 
