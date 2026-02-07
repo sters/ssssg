@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"html/template"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 )
 
 type TemplateData struct {
@@ -18,8 +19,17 @@ type TemplateData struct {
 
 //nolint:gochecknoglobals
 var funcMap = template.FuncMap{
-	"raw": func(s string) string {
-		return s
+	"raw": func(s string) template.HTML {
+		return template.HTML(s) //nolint:gosec
+	},
+	"rawCSS": func(s string) template.CSS {
+		return template.CSS(s) //nolint:gosec
+	},
+	"rawJS": func(s string) template.JS {
+		return template.JS(s) //nolint:gosec
+	},
+	"rawURL": func(s string) template.URL {
+		return template.URL(s) //nolint:gosec
 	},
 }
 
@@ -116,15 +126,30 @@ func CopyStatic(staticDir, outputDir string) error {
 			return nil
 		}
 
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("read %s: %w", path, err)
-		}
-
-		return os.WriteFile(destPath, data, 0o644) //nolint:gosec
+		return copyFile(path, destPath)
 	})
 	if err != nil {
 		return fmt.Errorf("walk static dir: %w", err)
+	}
+
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", src, err)
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644) //nolint:gosec
+	if err != nil {
+		return fmt.Errorf("create %s: %w", dst, err)
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return fmt.Errorf("copy %s: %w", src, err)
 	}
 
 	return nil

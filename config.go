@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/goccy/go-yaml"
 )
@@ -28,8 +30,9 @@ type PageConfig struct {
 }
 
 var (
-	errTemplateRequired = errors.New("template is required")
-	errOutputRequired   = errors.New("output is required")
+	errTemplateRequired    = errors.New("template is required")
+	errOutputRequired      = errors.New("output is required")
+	errOutputPathTraversal = errors.New("output path must not escape output directory")
 )
 
 func LoadConfig(path string) (*Config, error) {
@@ -50,6 +53,11 @@ func LoadConfig(path string) (*Config, error) {
 
 		if p.Output == "" {
 			return nil, fmt.Errorf("pages[%d]: %w", i, errOutputRequired)
+		}
+
+		cleaned := filepath.Clean(p.Output)
+		if filepath.IsAbs(cleaned) || strings.HasPrefix(cleaned, "..") {
+			return nil, fmt.Errorf("pages[%d]: %w: %s", i, errOutputPathTraversal, p.Output)
 		}
 	}
 

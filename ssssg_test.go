@@ -215,7 +215,7 @@ pages:
 		t.Fatal(err)
 	}
 
-	tmpl := `<style>{{ .Global.css | raw }}</style>`
+	tmpl := `<style>{{ .Global.css | rawCSS }}</style>`
 	if err := os.WriteFile(filepath.Join(dir, "templates", "index.html"), []byte(tmpl), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -235,5 +235,58 @@ pages:
 
 	if !strings.Contains(string(content), "body{margin:0}") {
 		t.Errorf("missing local fetch content:\n%s", string(content))
+	}
+}
+
+func TestBuild_Clean(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+global:
+  data:
+    site_name: "Test"
+
+pages:
+  - template: "index.html"
+    output: "index.html"
+    data:
+      title: "Home"
+`
+
+	dir := setupProject(t, yaml)
+
+	tmpl := `<html><body>{{ .Page.title }}</body></html>`
+	if err := os.WriteFile(filepath.Join(dir, "templates", "index.html"), []byte(tmpl), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create stale file in output directory
+	publicDir := filepath.Join(dir, "public")
+	if err := os.MkdirAll(publicDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	staleFile := filepath.Join(publicDir, "stale.html")
+	if err := os.WriteFile(staleFile, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := Build(t.Context(), BuildOptions{
+		ConfigPath: filepath.Join(dir, "site.yaml"),
+		Timeout:    10 * time.Second,
+		Clean:      true,
+	})
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	// Stale file should be removed
+	if _, err := os.Stat(staleFile); err == nil {
+		t.Error("stale file should have been removed by clean")
+	}
+
+	// New file should exist
+	if _, err := os.Stat(filepath.Join(publicDir, "index.html")); err != nil {
+		t.Error("index.html should exist after build")
 	}
 }

@@ -10,7 +10,7 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DA
 
 .PHONY: run
 run:
-	go run -ldflags "$(LDFLAGS)" . $(ARGS)
+	go run -ldflags "$(LDFLAGS)" ./cmd/ssssg $(ARGS)
 
 .PHONY: lint
 lint:
@@ -34,4 +34,14 @@ tidy:
 
 .PHONY: build
 build:
-	go build -ldflags "$(LDFLAGS)" -o bin/ssssg .
+	go build -ldflags "$(LDFLAGS)" -o bin/ssssg ./cmd/ssssg
+
+.PHONY: e2e
+e2e: build
+	@echo "Running e2e tests..."
+	@bash e2e/test_version.sh
+	@bash e2e/test_init.sh
+	@bash e2e/test_build.sh
+	@bash e2e/test_errors.sh
+	@echo ""
+	@echo "All e2e tests passed."

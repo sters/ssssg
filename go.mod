@@ -1,12 +1,13 @@
 module github.com/sters/ssssg
 
-go 1.24
+go 1.25
 
 tool github.com/golangci/golangci-lint/cmd/golangci-lint
 
 require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/spf13/cobra v1.9.1
+	golang.org/x/sync v0.12.0
 )
 
 require (
@@ -183,7 +184,6 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect

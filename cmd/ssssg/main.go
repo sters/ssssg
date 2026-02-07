@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/sters/ssssg/ssssg"
+	"github.com/sters/ssssg"
 )
 
 //nolint:gochecknoglobals
@@ -97,6 +97,7 @@ func newBuildCmd() *cobra.Command {
 		staticDir   string
 		outputDir   string
 		timeout     time.Duration
+		clean       bool
 	)
 
 	cmd := &cobra.Command{
@@ -109,6 +110,7 @@ func newBuildCmd() *cobra.Command {
 				StaticDir:   staticDir,
 				OutputDir:   outputDir,
 				Timeout:     timeout,
+				Clean:       clean,
 				Log:         os.Stdout,
 			})
 		},
@@ -119,6 +121,7 @@ func newBuildCmd() *cobra.Command {
 	cmd.Flags().StringVar(&staticDir, "static", "", "path to static directory")
 	cmd.Flags().StringVar(&outputDir, "output", "", "path to output directory")
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "timeout for HTTP fetches")
+	cmd.Flags().BoolVar(&clean, "clean", false, "remove output directory before building")
 
 	return cmd
 }

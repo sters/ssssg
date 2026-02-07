@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 )
 
@@ -64,9 +65,9 @@ func TestFetcher_FetchFile(t *testing.T) {
 func TestFetcher_Cache(t *testing.T) {
 	t.Parallel()
 
-	callCount := 0
+	var callCount atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		callCount++
+		callCount.Add(1)
 		_, _ = w.Write([]byte("cached"))
 	}))
 	defer srv.Close()
@@ -83,8 +84,44 @@ func TestFetcher_Cache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if callCount != 1 {
-		t.Errorf("callCount = %d, want 1 (should be cached)", callCount)
+	if callCount.Load() != 1 {
+		t.Errorf("callCount = %d, want 1 (should be cached)", callCount.Load())
+	}
+}
+
+func TestFetcher_Singleflight(t *testing.T) {
+	t.Parallel()
+
+	var callCount atomic.Int32
+	started := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		callCount.Add(1)
+		<-started
+		_, _ = w.Write([]byte("result"))
+	}))
+	defer srv.Close()
+
+	f := NewFetcher("", srv.Client())
+
+	errs := make(chan error, 3)
+	for range 3 {
+		go func() {
+			_, err := f.Fetch(t.Context(), srv.URL)
+			errs <- err
+		}()
+	}
+
+	// Let the handler complete
+	close(started)
+
+	for range 3 {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if callCount.Load() != 1 {
+		t.Errorf("callCount = %d, want 1 (singleflight should deduplicate)", callCount.Load())
 	}
 }
 

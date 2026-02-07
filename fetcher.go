@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/singleflight"
 )
 
 var errHTTPStatus = errors.New("unexpected HTTP status")
@@ -19,6 +22,7 @@ type Fetcher struct {
 	client  *http.Client
 	mu      sync.Mutex
 	cache   map[string]string
+	group   singleflight.Group
 }
 
 func NewFetcher(baseDir string, client *http.Client) *Fetcher {
@@ -42,24 +46,31 @@ func (f *Fetcher) Fetch(ctx context.Context, source string) (string, error) {
 	}
 	f.mu.Unlock()
 
-	var content string
-	var err error
+	v, err, _ := f.group.Do(source, func() (any, error) {
+		var content string
+		var fetchErr error
 
-	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		content, err = f.fetchHTTP(ctx, source)
-	} else {
-		content, err = f.fetchFile(source)
-	}
+		if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
+			content, fetchErr = f.fetchHTTP(ctx, source)
+		} else {
+			content, fetchErr = f.fetchFile(source)
+		}
 
+		if fetchErr != nil {
+			return "", fetchErr
+		}
+
+		f.mu.Lock()
+		f.cache[source] = content
+		f.mu.Unlock()
+
+		return content, nil
+	})
 	if err != nil {
 		return "", err
 	}
 
-	f.mu.Lock()
-	f.cache[source] = content
-	f.mu.Unlock()
-
-	return content, nil
+	return v.(string), nil
 }
 
 func (f *Fetcher) fetchHTTP(ctx context.Context, url string) (string, error) {
@@ -101,36 +112,28 @@ func (f *Fetcher) fetchFile(path string) (string, error) {
 }
 
 func (f *Fetcher) ResolveFetchMap(ctx context.Context, fetchMap map[string]string) (map[string]string, error) {
-	type fetchResult struct {
-		key     string
-		content string
-		err     error
-	}
-
-	ch := make(chan fetchResult, len(fetchMap))
-
-	for key, source := range fetchMap {
-		go func(key, source string) {
-			content, err := f.Fetch(ctx, source)
-			if err != nil {
-				ch <- fetchResult{key: key, err: fmt.Errorf("fetch %q: %w", key, err)}
-
-				return
-			}
-
-			ch <- fetchResult{key: key, content: content}
-		}(key, source)
-	}
-
+	var mu sync.Mutex
 	result := make(map[string]string, len(fetchMap))
 
-	for range len(fetchMap) {
-		r := <-ch
-		if r.err != nil {
-			return nil, r.err
-		}
+	g, ctx := errgroup.WithContext(ctx)
 
-		result[r.key] = r.content
+	for key, source := range fetchMap {
+		g.Go(func() error {
+			content, err := f.Fetch(ctx, source)
+			if err != nil {
+				return fmt.Errorf("fetch %q: %w", key, err)
+			}
+
+			mu.Lock()
+			result[key] = content
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	return result, nil

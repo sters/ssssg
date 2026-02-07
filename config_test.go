@@ -1,6 +1,7 @@
 package ssssg
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -123,5 +124,55 @@ func TestLoadConfig_FileNotFound(t *testing.T) {
 	_, err := LoadConfig("/nonexistent/site.yaml")
 	if err == nil {
 		t.Fatal("expected error for nonexistent file")
+	}
+}
+
+func TestLoadConfig_PathTraversal(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+pages:
+  - template: "index.html"
+    output: "../../etc/passwd"
+`
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "site.yaml")
+	if err := os.WriteFile(cfgPath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadConfig(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for path traversal")
+	}
+
+	if !errors.Is(err, errOutputPathTraversal) {
+		t.Errorf("expected errOutputPathTraversal, got: %v", err)
+	}
+}
+
+func TestLoadConfig_AbsoluteOutputPath(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+pages:
+  - template: "index.html"
+    output: "/tmp/evil.html"
+`
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "site.yaml")
+	if err := os.WriteFile(cfgPath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadConfig(cfgPath)
+	if err == nil {
+		t.Fatal("expected error for absolute output path")
+	}
+
+	if !errors.Is(err, errOutputPathTraversal) {
+		t.Errorf("expected errOutputPathTraversal, got: %v", err)
 	}
 }

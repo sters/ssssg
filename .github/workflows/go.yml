@@ -22,5 +22,6 @@ jobs:
 
     - run: make lint
     - run: make cover
+    - run: make e2e
 
     - uses: k1LoW/octocov-action@v1

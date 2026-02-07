@@ -196,7 +196,7 @@ func TestRenderPage_PageLayoutOverride(t *testing.T) {
 	}
 }
 
-func TestRenderPage_RawFunction(t *testing.T) {
+func TestRenderPage_RawCSSFunction(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -206,7 +206,7 @@ func TestRenderPage_RawFunction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	page := `<style>{{ .Page.css | raw }}</style>`
+	page := `<style>{{ .Page.css | rawCSS }}</style>`
 	if err := os.WriteFile(filepath.Join(tmplDir, "raw.html"), []byte(page), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -233,6 +233,91 @@ func TestRenderPage_RawFunction(t *testing.T) {
 
 	if !strings.Contains(string(content), "body { color: red; }") {
 		t.Errorf("raw content not preserved:\n%s", string(content))
+	}
+}
+
+func TestRenderPage_RawHTMLFunction(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	tmplDir := filepath.Join(dir, "templates")
+	outputDir := filepath.Join(dir, "public")
+	if err := os.MkdirAll(tmplDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	page := `<div>{{ .Page.content | raw }}</div>`
+	if err := os.WriteFile(filepath.Join(tmplDir, "rawhtml.html"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := PageConfig{
+		Template: "rawhtml.html",
+		Output:   "rawhtml.html",
+	}
+
+	data := TemplateData{
+		Global: map[string]any{},
+		Page:   map[string]any{"content": "<strong>bold</strong>"},
+	}
+
+	err := RenderPage(tmplDir, cfg, "", data, outputDir)
+	if err != nil {
+		t.Fatalf("RenderPage failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(outputDir, "rawhtml.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(content), "<strong>bold</strong>") {
+		t.Errorf("raw HTML not preserved:\n%s", string(content))
+	}
+}
+
+func TestRenderPage_HTMLEscaping(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	tmplDir := filepath.Join(dir, "templates")
+	outputDir := filepath.Join(dir, "public")
+	if err := os.MkdirAll(tmplDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	page := `<div>{{ .Page.content }}</div>`
+	if err := os.WriteFile(filepath.Join(tmplDir, "escape.html"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := PageConfig{
+		Template: "escape.html",
+		Output:   "escape.html",
+	}
+
+	data := TemplateData{
+		Global: map[string]any{},
+		Page:   map[string]any{"content": "<script>alert('xss')</script>"},
+	}
+
+	err := RenderPage(tmplDir, cfg, "", data, outputDir)
+	if err != nil {
+		t.Fatalf("RenderPage failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(outputDir, "escape.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	html := string(content)
+	if strings.Contains(html, "<script>") {
+		t.Errorf("script tag should be escaped:\n%s", html)
+	}
+
+	if !strings.Contains(html, "&lt;script&gt;") {
+		t.Errorf("expected HTML-escaped content:\n%s", html)
 	}
 }
 

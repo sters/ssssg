@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type BuildOptions struct {
@@ -15,6 +18,7 @@ type BuildOptions struct {
 	StaticDir   string
 	OutputDir   string
 	Timeout     time.Duration
+	Clean       bool
 	Log         io.Writer
 }
 
@@ -54,32 +58,50 @@ func Build(ctx context.Context, opts BuildOptions) error {
 	logf("Templates: %s", opts.TemplateDir)
 	logf("Output:    %s", opts.OutputDir)
 
+	// Clean output directory if requested
+	if opts.Clean {
+		logf("Cleaning output directory...")
+
+		if err := os.RemoveAll(opts.OutputDir); err != nil {
+			return fmt.Errorf("clean output dir: %w", err)
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, opts.Timeout)
 	defer cancel()
 
-	client := &http.Client{Timeout: opts.Timeout}
-	fetcher := NewFetcher(baseDir, client)
+	// HTTP client relies on context for timeout — no separate client timeout
+	fetcher := NewFetcher(baseDir, &http.Client{})
 
-	// Collect all fetch sources (global + all pages) and resolve in parallel
-	allFetch := make(map[string]string)
+	// Collect all unique fetch sources
+	sources := make(map[string]struct{})
 	for key, src := range cfg.Global.Fetch {
-		allFetch[src] = src // deduplicate by source URL
+		sources[src] = struct{}{}
 		logf("Fetching global.%s: %s", key, src)
 	}
 
 	for _, page := range cfg.Pages {
 		for key, src := range page.Fetch {
-			allFetch[src] = src
+			sources[src] = struct{}{}
 			logf("Fetching %s.%s: %s", page.Output, key, src)
 		}
 	}
 
-	if len(allFetch) > 0 {
-		logf("Fetching %d source(s) in parallel...", len(allFetch))
+	// Prefetch all unique sources in parallel
+	if len(sources) > 0 {
+		logf("Fetching %d source(s) in parallel...", len(sources))
 
-		// Pre-fetch all sources in parallel (populates cache)
-		if _, err := fetcher.ResolveFetchMap(ctx, allFetch); err != nil {
-			return fmt.Errorf("resolve fetch: %w", err)
+		g, gctx := errgroup.WithContext(ctx)
+		for src := range sources {
+			g.Go(func() error {
+				_, err := fetcher.Fetch(gctx, src)
+
+				return err
+			})
+		}
+
+		if err := g.Wait(); err != nil {
+			return fmt.Errorf("fetch: %w", err)
 		}
 	}
 
@@ -90,24 +112,32 @@ func Build(ctx context.Context, opts BuildOptions) error {
 	}
 
 	for key, src := range cfg.Global.Fetch {
-		content, _ := fetcher.Fetch(ctx, src) // already cached
+		content, err := fetcher.Fetch(ctx, src)
+		if err != nil {
+			return fmt.Errorf("resolve global fetch %q: %w", key, err)
+		}
+
 		globalData[key] = content
 	}
 
 	// Render each page in parallel
 	logf("Building %d page(s)...", len(cfg.Pages))
 
-	errs := make(chan error, len(cfg.Pages))
+	g, gctx := errgroup.WithContext(ctx)
 
 	for _, page := range cfg.Pages {
-		go func(page PageConfig) {
+		g.Go(func() error {
 			pageData := make(map[string]any)
 			for k, v := range page.Data {
 				pageData[k] = v
 			}
 
 			for key, src := range page.Fetch {
-				content, _ := fetcher.Fetch(ctx, src) // already cached
+				content, err := fetcher.Fetch(gctx, src)
+				if err != nil {
+					return fmt.Errorf("resolve %s fetch %q: %w", page.Output, key, err)
+				}
+
 				pageData[key] = content
 			}
 
@@ -117,20 +147,17 @@ func Build(ctx context.Context, opts BuildOptions) error {
 			}
 
 			if err := RenderPage(opts.TemplateDir, page, cfg.Global.Layout, data, opts.OutputDir); err != nil {
-				errs <- fmt.Errorf("render %s: %w", page.Output, err)
-
-				return
+				return fmt.Errorf("render %s: %w", page.Output, err)
 			}
 
 			logf("  Generated: %s", page.Output)
-			errs <- nil
-		}(page)
+
+			return nil
+		})
 	}
 
-	for range len(cfg.Pages) {
-		if err := <-errs; err != nil {
-			return err
-		}
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	// Copy static files
