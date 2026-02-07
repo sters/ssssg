@@ -1,8 +1,13 @@
-module github.com/sters/go-project-boilerplate
+module github.com/sters/ssssg
 
 go 1.24
 
 tool github.com/golangci/golangci-lint/cmd/golangci-lint
+
+require (
+	github.com/goccy/go-yaml v1.19.2
+	github.com/spf13/cobra v1.9.1
+)
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
@@ -147,7 +152,6 @@ require (
 	github.com/sourcegraph/go-diff v0.7.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/spf13/viper v1.12.0 // indirect

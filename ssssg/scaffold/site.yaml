@@ -1,0 +1,12 @@
+global:
+  layout: "_layout.html"
+  data:
+    site_name: "My Site"
+    author: "Your Name"
+
+pages:
+  - template: "index.html"
+    output: "index.html"
+    data:
+      title: "Home"
+      greeting: "Welcome to My Site!"

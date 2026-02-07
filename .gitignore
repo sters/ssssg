@@ -16,3 +16,4 @@
 bin/
 coverage.txt
 third_party_licenses
+public/

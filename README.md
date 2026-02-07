@@ -1,45 +1,95 @@
-# go-project-boilerplate
+# ssssg - Super Simple Static Site Generator
 
-[![go](https://github.com/sters/go-project-boilerplate/workflows/Go/badge.svg)](https://github.com/sters/go-project-boilerplate/actions?query=workflow%3AGo)
-[![coverage](docs/coverage.svg)](https://github.com/sters/go-project-boilerplate)
-[![go-report](https://goreportcard.com/badge/github.com/sters/go-project-boilerplate)](https://goreportcard.com/report/github.com/sters/go-project-boilerplate)
+[![go](https://github.com/sters/ssssg/workflows/Go/badge.svg)](https://github.com/sters/ssssg/actions?query=workflow%3AGo)
+[![coverage](docs/coverage.svg)](https://github.com/sters/ssssg)
+[![go-report](https://goreportcard.com/badge/github.com/sters/ssssg)](https://goreportcard.com/report/github.com/sters/ssssg)
 
-My go project boilerplate.
-
-## Includes
-
-- Makefile
-  - run
-  - test
-  - cover
-  - Tools install from `./tools/tools.go`
-- Github Actions
-  - Go
-    - Lint by golangcilint
-    - Run test and generate coverage report with octocov
-  - Release
-    - Make release when vX.X.X tag is added by goreleaser.
-- README
-  - Badge: Github Actions/Go
-  - Badge: Octocov Coverage
-  - Badge: Go Report
-
-## TODO when use this
-
-- [ ] Change run task in `Makefile` if needed
-- [ ] Change package name in `go.mod`
-- [ ] Update `README.md`
-
----
+YAML でデータと URL を定義 → Go テンプレートで HTML を記述 → ビルドで静的 HTML を生成するツール。
 
 ## Install
 
 ```shell
-go install github.com/sters/go-project-boilerplate@latest
+go install github.com/sters/ssssg@latest
 ```
 
-or use specific version from [Releases](https://github.com/sters/go-project-boilerplate/releases).
+or use specific version from [Releases](https://github.com/sters/ssssg/releases).
+
+## Quick Start
+
+```shell
+# Initialize a new project
+ssssg init mysite
+cd mysite
+
+# Build the site
+ssssg build
+```
 
 ## Usage
 
-....
+```shell
+ssssg build                       # Build with defaults (site.yaml)
+ssssg build --config site.yaml    # Specify config file
+ssssg build --templates templates/
+ssssg build --static static/
+ssssg build --output public/
+ssssg build --timeout 30s
+
+ssssg init                        # Initialize in current directory
+ssssg init mysite                 # Initialize in specified directory
+
+ssssg version                     # Show version info
+```
+
+## Project Structure
+
+```
+my-site/
+  site.yaml          # Site definition (data, URLs, pages)
+  templates/
+    _layout.html      # Shared layout (_ prefix = shared file)
+    _header.html      # Partial
+    _footer.html      # Partial
+    index.html        # Page template
+  static/             # Static files (copied to output as-is)
+  public/             # Output directory (generated)
+```
+
+## site.yaml
+
+```yaml
+global:
+  layout: "_layout.html"
+  data:
+    site_name: "My Site"
+  fetch:
+    reset_css: "https://cdn.example.com/reset.css"
+    custom_css: "static/style.css"
+
+pages:
+  - template: "index.html"
+    output: "index.html"
+    data:
+      title: "Home"
+      greeting: "Welcome!"
+    fetch:
+      projects: "https://api.example.com/projects.json"
+
+  - template: "about.html"
+    output: "about/index.html"
+    layout: "_other_layout.html"
+    data:
+      title: "About"
+```
+
+## Templates
+
+Templates use Go's `html/template` syntax. Data is accessed via `.Global` and `.Page`:
+
+```html
+{{ .Global.site_name }}
+{{ .Page.title }}
+{{ .Global.reset_css | raw }}
+```
+
+Use `| raw` for fetched HTML/CSS content that should not be escaped.

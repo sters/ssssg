@@ -1,14 +1,15 @@
 package main
 
 import (
-	"flag"
+	"context"
 	"fmt"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"time"
 
-	"github.com/sters/go-project-boilerplate/boilerplate"
+	"github.com/spf13/cobra"
+	"github.com/sters/ssssg/ssssg"
 )
 
 //nolint:gochecknoglobals
@@ -73,19 +74,86 @@ func getDate() string {
 }
 
 func main() {
-	var showVersion bool
-	flag.BoolVar(&showVersion, "version", false, "show version information")
-	flag.BoolVar(&showVersion, "v", false, "show version information (short)")
-	flag.Parse()
-
-	if showVersion {
-		fmt.Printf("Version:    %s\n", getVersion())
-		fmt.Printf("Commit:     %s\n", getCommit())
-		fmt.Printf("Built:      %s\n", getDate())
-		fmt.Printf("Go version: %s\n", runtime.Version())
-		fmt.Printf("OS/Arch:    %s/%s\n", runtime.GOOS, runtime.GOARCH)
-		os.Exit(0)
+	rootCmd := &cobra.Command{
+		Use:   "ssssg",
+		Short: "Super Simple Static Site Generator",
 	}
 
-	fmt.Printf("%s World!", boilerplate.Hello())
+	buildCmd := newBuildCmd()
+	initCmd := newInitCmd()
+	versionCmd := newVersionCmd()
+
+	rootCmd.AddCommand(buildCmd, initCmd, versionCmd)
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func newBuildCmd() *cobra.Command {
+	var (
+		configPath  string
+		templateDir string
+		staticDir   string
+		outputDir   string
+		timeout     time.Duration
+	)
+
+	cmd := &cobra.Command{
+		Use:   "build",
+		Short: "Build the static site",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return ssssg.Build(context.Background(), ssssg.BuildOptions{
+				ConfigPath:  configPath,
+				TemplateDir: templateDir,
+				StaticDir:   staticDir,
+				OutputDir:   outputDir,
+				Timeout:     timeout,
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&configPath, "config", "site.yaml", "path to config file")
+	cmd.Flags().StringVar(&templateDir, "templates", "", "path to templates directory")
+	cmd.Flags().StringVar(&staticDir, "static", "", "path to static directory")
+	cmd.Flags().StringVar(&outputDir, "output", "", "path to output directory")
+	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "timeout for HTTP fetches")
+
+	return cmd
+}
+
+func newInitCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "init [directory]",
+		Short: "Initialize a new site project",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			dir := "."
+			if len(args) > 0 {
+				dir = args[0]
+			}
+
+			if err := ssssg.Init(dir); err != nil {
+				return fmt.Errorf("init: %w", err)
+			}
+
+			fmt.Printf("Initialized new ssssg project in %s\n", dir)
+
+			return nil
+		},
+	}
+}
+
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Show version information",
+		Run: func(_ *cobra.Command, _ []string) {
+			fmt.Printf("Version:    %s\n", getVersion())
+			fmt.Printf("Commit:     %s\n", getCommit())
+			fmt.Printf("Built:      %s\n", getDate())
+			fmt.Printf("Go version: %s\n", runtime.Version())
+			fmt.Printf("OS/Arch:    %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		},
+	}
 }
