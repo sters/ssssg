@@ -22,6 +22,8 @@ func TestInit(t *testing.T) {
 		"templates/_header.html",
 		"templates/_footer.html",
 		"templates/index.html",
+		"templates/about.html",
+		"templates/contact.html",
 	}
 
 	for _, f := range expectedFiles {

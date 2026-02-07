@@ -291,6 +291,121 @@ pages:
 	}
 }
 
+func TestBuild_WithStaticMetadata(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+global:
+  data:
+    site_name: "Test"
+
+pages:
+  - template: "index.html"
+    output: "index.html"
+    data:
+      title: "Home"
+`
+
+	dir := setupProject(t, yaml)
+
+	// Create a PNG image in static dir
+	createTestImage(t, filepath.Join(dir, "static", "hero.png"), 800, 600, "png")
+
+	// Create a non-image static file
+	if err := os.WriteFile(filepath.Join(dir, "static", "style.css"), []byte("body{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Template that references .Static
+	tmpl := `<img src="/hero.png" width="{{ (index .Static "hero.png").Width }}" height="{{ (index .Static "hero.png").Height }}">` +
+		`<p>css={{ (index .Static "style.css").Size }}</p>` +
+		`<p>missing={{ (index .Static "nope.jpg").Width }}</p>`
+	if err := os.WriteFile(filepath.Join(dir, "templates", "index.html"), []byte(tmpl), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := Build(t.Context(), BuildOptions{
+		ConfigPath: filepath.Join(dir, "site.yaml"),
+		Timeout:    10 * time.Second,
+		Clean:      true,
+	})
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(dir, "public", "index.html"))
+	if err != nil {
+		t.Fatal("output not created")
+	}
+
+	html := string(content)
+
+	if !strings.Contains(html, `width="800"`) {
+		t.Errorf("missing width=800:\n%s", html)
+	}
+
+	if !strings.Contains(html, `height="600"`) {
+		t.Errorf("missing height=600:\n%s", html)
+	}
+
+	if !strings.Contains(html, `css=6`) {
+		t.Errorf("missing css size:\n%s", html)
+	}
+
+	if !strings.Contains(html, `missing=0`) {
+		t.Errorf("missing zero value for non-existent key:\n%s", html)
+	}
+}
+
+func TestBuild_WithStaticMetadataSubdir(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+global:
+  data:
+    site_name: "Test"
+
+pages:
+  - template: "index.html"
+    output: "index.html"
+    data:
+      title: "Home"
+`
+
+	dir := setupProject(t, yaml)
+
+	// Create image in subdirectory
+	imgDir := filepath.Join(dir, "static", "img")
+	if err := os.MkdirAll(imgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	createTestImage(t, filepath.Join(imgDir, "photo.png"), 320, 240, "png")
+
+	tmpl := `<img width="{{ (index .Static "img/photo.png").Width }}">`
+	if err := os.WriteFile(filepath.Join(dir, "templates", "index.html"), []byte(tmpl), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := Build(t.Context(), BuildOptions{
+		ConfigPath: filepath.Join(dir, "site.yaml"),
+		Timeout:    10 * time.Second,
+		Clean:      true,
+	})
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(dir, "public", "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(content), `width="320"`) {
+		t.Errorf("missing width=320:\n%s", string(content))
+	}
+}
+
 func TestBuild_WithStaticPipelines(t *testing.T) {
 	t.Parallel()
 

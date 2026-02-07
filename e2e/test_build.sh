@@ -392,4 +392,78 @@ TMPL
 begin_test "pipeline: no pipelines copies all files"
 assert_file_contains "$PROJECT/public/file.txt" "keep" && pass
 
+# ── .Static metadata in templates ────────────────────────────
+
+# Helper: generate a valid PNG of given WxH using python3
+make_png() {
+  local path="$1" w="$2" h="$3"
+  python3 -c "
+import struct, zlib
+sig = b'\x89PNG\r\n\x1a\n'
+ihdr_data = struct.pack('>IIBBBBB', $w, $h, 1, 0, 0, 0, 0)
+ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr_data) & 0xffffffff)
+ihdr = struct.pack('>I', len(ihdr_data)) + b'IHDR' + ihdr_data + ihdr_crc
+iend = struct.pack('>I', 0) + b'IEND' + struct.pack('>I', zlib.crc32(b'IEND') & 0xffffffff)
+import sys; sys.stdout.buffer.write(sig + ihdr + iend)
+" > "$path"
+}
+
+PROJECT="$WORK_DIR/static_meta"
+make_project "$PROJECT"
+
+make_png "$PROJECT/static/hero.png" 120 80
+
+echo "body{}" > "$PROJECT/static/style.css"
+
+cat > "$PROJECT/site.yaml" <<'YAML'
+pages:
+  - template: "index.html"
+    output: "index.html"
+YAML
+
+cat > "$PROJECT/templates/index.html" <<'TMPL'
+<html><body>
+<img width="{{ (index .Static "hero.png").Width }}" height="{{ (index .Static "hero.png").Height }}">
+<p>css-size={{ (index .Static "style.css").Size }}</p>
+<p>missing={{ (index .Static "nope.jpg").Width }}</p>
+</body></html>
+TMPL
+
+"$SSSSG_BIN" build --config "$PROJECT/site.yaml" --timeout 10s --clean >/dev/null 2>&1
+
+begin_test ".Static: image width rendered"
+assert_file_contains "$PROJECT/public/index.html" 'width="120"' && pass
+
+begin_test ".Static: image height rendered"
+assert_file_contains "$PROJECT/public/index.html" 'height="80"' && pass
+
+begin_test ".Static: non-image file size rendered"
+assert_file_contains "$PROJECT/public/index.html" 'css-size=7' && pass
+
+begin_test ".Static: missing key returns zero value"
+assert_file_contains "$PROJECT/public/index.html" 'missing=0' && pass
+
+# ── .Static with subdirectory ────────────────────────────────
+
+PROJECT="$WORK_DIR/static_meta_subdir"
+make_project "$PROJECT"
+mkdir -p "$PROJECT/static/img"
+
+make_png "$PROJECT/static/img/photo.png" 320 240
+
+cat > "$PROJECT/site.yaml" <<'YAML'
+pages:
+  - template: "index.html"
+    output: "index.html"
+YAML
+
+cat > "$PROJECT/templates/index.html" <<'TMPL'
+<img width="{{ (index .Static "img/photo.png").Width }}">
+TMPL
+
+"$SSSSG_BIN" build --config "$PROJECT/site.yaml" --timeout 10s --clean >/dev/null 2>&1
+
+begin_test ".Static: subdirectory key with forward slash"
+assert_file_contains "$PROJECT/public/index.html" 'width="320"' && pass
+
 summary

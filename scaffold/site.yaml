@@ -10,5 +10,13 @@ pages:
     data:
       title: "Home"
       greeting: "Welcome to My Site!"
-    fetch:
-      httpbin: "https://httpbin.org/get"
+
+  - template: "about.html"
+    output: "about.html"
+    data:
+      title: "About"
+
+  - template: "contact.html"
+    output: "contact.html"
+    data:
+      title: "Contact"

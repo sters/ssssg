@@ -12,9 +12,17 @@ import (
 	"strings"
 )
 
+type StaticFileInfo struct {
+	Path   string // forward-slash relative path
+	Size   int64  // file size in bytes
+	Width  int    // image width in px, 0 if not an image
+	Height int    // image height in px, 0 if not an image
+}
+
 type TemplateData struct {
 	Global map[string]any
 	Page   map[string]any
+	Static map[string]StaticFileInfo
 }
 
 //nolint:gochecknoglobals

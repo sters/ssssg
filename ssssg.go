@@ -120,6 +120,27 @@ func Build(ctx context.Context, opts BuildOptions) error {
 		globalData[key] = content
 	}
 
+	// Process static files first (before rendering, so templates can access metadata)
+	logf("Processing static files...")
+
+	if err := ProcessStatic(ctx, opts.StaticDir, opts.OutputDir, cfg.Static.Pipelines); err != nil {
+		return fmt.Errorf("process static: %w", err)
+	}
+
+	// Scan processed static files for metadata
+	logf("Scanning static files...")
+
+	staticMeta, err := ScanStaticFiles(opts.OutputDir)
+	if err != nil {
+		return fmt.Errorf("scan static files: %w", err)
+	}
+
+	if staticMeta == nil {
+		staticMeta = make(map[string]StaticFileInfo)
+	}
+
+	logf("  Found %d static file(s)", len(staticMeta))
+
 	// Render each page in parallel
 	logf("Building %d page(s)...", len(cfg.Pages))
 
@@ -144,6 +165,7 @@ func Build(ctx context.Context, opts BuildOptions) error {
 			data := TemplateData{
 				Global: globalData,
 				Page:   pageData,
+				Static: staticMeta,
 			}
 
 			if err := RenderPage(opts.TemplateDir, page, cfg.Global.Layout, data, opts.OutputDir); err != nil {
@@ -158,13 +180,6 @@ func Build(ctx context.Context, opts BuildOptions) error {
 
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("build pages: %w", err)
-	}
-
-	// Process static files
-	logf("Processing static files...")
-
-	if err := ProcessStatic(ctx, opts.StaticDir, opts.OutputDir, cfg.Static.Pipelines); err != nil {
-		return fmt.Errorf("process static: %w", err)
 	}
 
 	logf("Done!")

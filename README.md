@@ -84,7 +84,7 @@ pages:
 
 ## Templates
 
-Templates use Go's `html/template` syntax. Data is accessed via `.Global` and `.Page`:
+Templates use Go's `html/template` syntax. Data is accessed via `.Global`, `.Page`, and `.Static`:
 
 ```html
 {{ .Global.site_name }}
@@ -93,6 +93,28 @@ Templates use Go's `html/template` syntax. Data is accessed via `.Global` and `.
 ```
 
 Use `| raw` for fetched HTML/CSS content that should not be escaped.
+
+### Static File Metadata
+
+`.Static` provides metadata for all files in the output directory (scanned after pipeline processing). Each entry is a `StaticFileInfo` with these fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Path` | string | Forward-slash relative path (e.g. `img/photo.png`) |
+| `Size` | int64 | File size in bytes |
+| `Width` | int | Image width in px (0 if not an image) |
+| `Height` | int | Image height in px (0 if not an image) |
+
+Supported image formats: JPEG, PNG, GIF, WebP.
+
+```html
+{{ $img := index .Static "img/photo.png" }}
+{{ if $img.Path }}
+  <img src="/img/photo.png" width="{{ $img.Width }}" height="{{ $img.Height }}">
+{{ end }}
+```
+
+Accessing a non-existent key returns a zero-value struct (no error), so you can safely check `$img.Path` for existence.
 
 ## Static File Pipelines
 
