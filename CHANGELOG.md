@@ -1,5 +1,7 @@
 # Changelog
 
+## [v0.0.4](https://github.com/sters/ssssg/compare/v0.0.3...v0.0.4) - 2026-02-08
+
 ## [v0.0.4](https://github.com/sters/ssssg/compare/v0.0.3...v0.0.4) - 2026-02-07
 
 ## [v0.0.3](https://github.com/sters/ssssg/compare/v0.0.2...v0.0.3) - 2026-02-07
