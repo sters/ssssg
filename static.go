@@ -13,13 +13,14 @@ import (
 	"sync"
 
 	_ "golang.org/x/image/webp" // Register WebP decoder.
+	"golang.org/x/sync/errgroup"
 )
 
 // ScanStaticFiles walks dir and returns metadata for every file found.
 // Image files (.jpg, .jpeg, .png, .gif, .webp) have Width/Height populated
 // via image.DecodeConfig (header-only, fast). Errors on individual files are
 // silently ignored so that a broken image never stops the build.
-func ScanStaticFiles(dir string) (map[string]StaticFileInfo, error) {
+func ScanStaticFiles(dir string, parallelism int) (map[string]StaticFileInfo, error) {
 	info, err := os.Stat(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -69,23 +70,25 @@ func ScanStaticFiles(dir string) (map[string]StaticFileInfo, error) {
 
 	result := make(map[string]StaticFileInfo, len(files))
 	var mu sync.Mutex
-	var wg sync.WaitGroup
+
+	g := new(errgroup.Group)
+	g.SetLimit(parallelism)
 
 	for _, f := range files {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		g.Go(func() error {
 			si := scanFile(f.path, f.relPath)
 
 			mu.Lock()
 			result[filepath.ToSlash(f.relPath)] = si
 			mu.Unlock()
-		}()
+
+			return nil
+		})
 	}
 
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("scan files: %w", err)
+	}
 
 	return result, nil
 }

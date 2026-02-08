@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -20,6 +21,7 @@ type BuildOptions struct {
 	Timeout     time.Duration
 	Clean       bool
 	Log         io.Writer
+	Parallelism int
 }
 
 func Build(ctx context.Context, opts BuildOptions) error {
@@ -53,6 +55,10 @@ func Build(ctx context.Context, opts BuildOptions) error {
 
 	if opts.Timeout == 0 {
 		opts.Timeout = 30 * time.Second
+	}
+
+	if opts.Parallelism <= 0 {
+		opts.Parallelism = runtime.NumCPU()
 	}
 
 	logf("Templates: %s", opts.TemplateDir)
@@ -92,6 +98,8 @@ func Build(ctx context.Context, opts BuildOptions) error {
 		logf("Fetching %d source(s) in parallel...", len(sources))
 
 		g, gctx := errgroup.WithContext(ctx)
+		g.SetLimit(opts.Parallelism)
+
 		for src := range sources {
 			g.Go(func() error {
 				_, err := fetcher.Fetch(gctx, src)
@@ -123,14 +131,14 @@ func Build(ctx context.Context, opts BuildOptions) error {
 	// Process static files first (before rendering, so templates can access metadata)
 	logf("Processing static files...")
 
-	if err := ProcessStatic(ctx, opts.StaticDir, opts.OutputDir, cfg.Static.Pipelines); err != nil {
+	if err := ProcessStatic(ctx, opts.StaticDir, opts.OutputDir, cfg.Static.Pipelines, opts.Parallelism); err != nil {
 		return fmt.Errorf("process static: %w", err)
 	}
 
 	// Scan processed static files for metadata
 	logf("Scanning static files...")
 
-	staticMeta, err := ScanStaticFiles(opts.OutputDir)
+	staticMeta, err := ScanStaticFiles(opts.OutputDir, opts.Parallelism)
 	if err != nil {
 		return fmt.Errorf("scan static files: %w", err)
 	}
@@ -145,6 +153,7 @@ func Build(ctx context.Context, opts BuildOptions) error {
 	logf("Building %d page(s)...", len(cfg.Pages))
 
 	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(opts.Parallelism)
 
 	for _, page := range cfg.Pages {
 		g.Go(func() error {

@@ -183,7 +183,7 @@ func TestProcessStatic_WithPipeline(t *testing.T) {
 		},
 	}
 
-	if err := ProcessStatic(t.Context(), staticDir, outputDir, pipelines); err != nil {
+	if err := ProcessStatic(t.Context(), staticDir, outputDir, pipelines, 2); err != nil {
 		t.Fatalf("ProcessStatic failed: %v", err)
 	}
 
@@ -221,7 +221,7 @@ func TestProcessStatic_UnmatchedFilesCopied(t *testing.T) {
 		{Match: "*.jpg", Commands: []string{"cp {{.Src}} {{.Dest}}"}},
 	}
 
-	if err := ProcessStatic(t.Context(), staticDir, outputDir, pipelines); err != nil {
+	if err := ProcessStatic(t.Context(), staticDir, outputDir, pipelines, 2); err != nil {
 		t.Fatalf("ProcessStatic failed: %v", err)
 	}
 
@@ -254,7 +254,7 @@ func TestProcessStatic_NoPipelines(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ProcessStatic(t.Context(), staticDir, outputDir, nil); err != nil {
+	if err := ProcessStatic(t.Context(), staticDir, outputDir, nil, 2); err != nil {
 		t.Fatalf("ProcessStatic failed: %v", err)
 	}
 

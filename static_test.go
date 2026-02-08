@@ -59,7 +59,7 @@ func TestScanStaticFiles_Images(t *testing.T) {
 	createTestImage(t, filepath.Join(dir, "pic.jpg"), 640, 480, "jpeg")
 	createTestImage(t, filepath.Join(dir, "anim.gif"), 32, 32, "gif")
 
-	result, err := ScanStaticFiles(dir)
+	result, err := ScanStaticFiles(dir, 2)
 	if err != nil {
 		t.Fatalf("ScanStaticFiles: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestScanStaticFiles_NonImage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := ScanStaticFiles(dir)
+	result, err := ScanStaticFiles(dir, 2)
 	if err != nil {
 		t.Fatalf("ScanStaticFiles: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestScanStaticFiles_BrokenImage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := ScanStaticFiles(dir)
+	result, err := ScanStaticFiles(dir, 2)
 	if err != nil {
 		t.Fatalf("ScanStaticFiles: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestScanStaticFiles_EmptyDir(t *testing.T) {
 
 	dir := t.TempDir()
 
-	result, err := ScanStaticFiles(dir)
+	result, err := ScanStaticFiles(dir, 2)
 	if err != nil {
 		t.Fatalf("ScanStaticFiles: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestScanStaticFiles_EmptyDir(t *testing.T) {
 func TestScanStaticFiles_NonExistentDir(t *testing.T) {
 	t.Parallel()
 
-	result, err := ScanStaticFiles(filepath.Join(t.TempDir(), "does-not-exist"))
+	result, err := ScanStaticFiles(filepath.Join(t.TempDir(), "does-not-exist"), 2)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -195,7 +195,7 @@ func TestScanStaticFiles_DotfileSkipped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := ScanStaticFiles(dir)
+	result, err := ScanStaticFiles(dir, 2)
 	if err != nil {
 		t.Fatalf("ScanStaticFiles: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestScanStaticFiles_Subdirectory(t *testing.T) {
 
 	createTestImage(t, filepath.Join(imgDir, "photo.png"), 50, 75, "png")
 
-	result, err := ScanStaticFiles(dir)
+	result, err := ScanStaticFiles(dir, 2)
 	if err != nil {
 		t.Fatalf("ScanStaticFiles: %v", err)
 	}

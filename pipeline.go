@@ -27,7 +27,7 @@ type PipelineData struct {
 // ProcessStatic walks the static directory and processes each file.
 // Files matching a pipeline have their commands executed in order.
 // Unmatched files are copied using copyFile.
-func ProcessStatic(ctx context.Context, staticDir, outputDir string, pipelines []PipelineConfig) error {
+func ProcessStatic(ctx context.Context, staticDir, outputDir string, pipelines []PipelineConfig, parallelism int) error {
 	info, err := os.Stat(staticDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -76,6 +76,7 @@ func ProcessStatic(ctx context.Context, staticDir, outputDir string, pipelines [
 	}
 
 	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(parallelism)
 
 	for _, f := range files {
 		g.Go(func() error {

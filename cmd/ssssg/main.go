@@ -98,6 +98,7 @@ func newBuildCmd() *cobra.Command {
 		outputDir   string
 		timeout     time.Duration
 		clean       bool
+		parallelism int
 	)
 
 	cmd := &cobra.Command{
@@ -112,6 +113,7 @@ func newBuildCmd() *cobra.Command {
 				Timeout:     timeout,
 				Clean:       clean,
 				Log:         os.Stdout,
+				Parallelism: parallelism,
 			})
 		},
 	}
@@ -122,6 +124,7 @@ func newBuildCmd() *cobra.Command {
 	cmd.Flags().StringVar(&outputDir, "output", "", "path to output directory")
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "timeout for HTTP fetches")
 	cmd.Flags().BoolVar(&clean, "clean", false, "remove output directory before building")
+	cmd.Flags().IntVar(&parallelism, "parallelism", 0, "max number of parallel operations (0 = number of CPUs)")
 
 	return cmd
 }
