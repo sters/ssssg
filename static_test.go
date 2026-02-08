@@ -65,9 +65,9 @@ func TestScanStaticFiles_Images(t *testing.T) {
 	}
 
 	tests := []struct {
-		key            string
-		wantW, wantH   int
-		wantSizeGt0    bool
+		key          string
+		wantW, wantH int
+		wantSizeGt0  bool
 	}{
 		{"photo.png", 100, 200, true},
 		{"pic.jpg", 640, 480, true},
@@ -78,6 +78,7 @@ func TestScanStaticFiles_Images(t *testing.T) {
 		si, ok := result[tt.key]
 		if !ok {
 			t.Errorf("missing key %q", tt.key)
+
 			continue
 		}
 
@@ -176,8 +177,8 @@ func TestScanStaticFiles_NonExistentDir(t *testing.T) {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	if result != nil {
-		t.Errorf("expected nil map, got %v", result)
+	if len(result) != 0 {
+		t.Errorf("expected empty map, got %v", result)
 	}
 }
 

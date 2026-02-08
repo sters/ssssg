@@ -3,16 +3,16 @@ package ssssg
 import (
 	"fmt"
 	"image"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
+	_ "image/gif"  // Register GIF decoder.
+	_ "image/jpeg" // Register JPEG decoder.
+	_ "image/png"  // Register PNG decoder.
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	_ "golang.org/x/image/webp"
+	_ "golang.org/x/image/webp" // Register WebP decoder.
 )
 
 // ScanStaticFiles walks dir and returns metadata for every file found.
@@ -23,7 +23,7 @@ func ScanStaticFiles(dir string) (map[string]StaticFileInfo, error) {
 	info, err := os.Stat(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return map[string]StaticFileInfo{}, nil
 		}
 
 		return nil, fmt.Errorf("stat dir: %w", err)
@@ -90,13 +90,14 @@ func ScanStaticFiles(dir string) (map[string]StaticFileInfo, error) {
 	return result, nil
 }
 
-// imageExts lists extensions handled by the registered image decoders.
-var imageExts = map[string]bool{
-	".jpg":  true,
-	".jpeg": true,
-	".png":  true,
-	".gif":  true,
-	".webp": true,
+// isImageExt reports whether ext is handled by the registered image decoders.
+func isImageExt(ext string) bool {
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+		return true
+	}
+
+	return false
 }
 
 // scanFile returns metadata for a single file. Decode errors are swallowed.
@@ -113,7 +114,7 @@ func scanFile(absPath, relPath string) StaticFileInfo {
 	si.Size = fi.Size()
 
 	ext := strings.ToLower(filepath.Ext(absPath))
-	if !imageExts[ext] {
+	if !isImageExt(ext) {
 		return si
 	}
 
